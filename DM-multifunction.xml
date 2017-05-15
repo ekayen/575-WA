@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain>
+	<initialstate>
+		<variable id="u_m">
+			<value>Welcome to Wolfram Alpha! Do you want to ask a question or get a fun fact? </value>
+		</variable>
+	</initialstate>
+		<parameters>
+		<variable id="theta_repeat">
+			<distrib type="gaussian">
+				<mean>0</mean>
+				<variance>5</variance>
+			</distrib>
+			
+		</variable>
+		<variable id="theta_repeatpredict">
+			<distrib type="dirichlet">
+				<alpha>3</alpha>
+				<alpha>1</alpha>
+			</distrib>
+		</variable>
+	</parameters>
+
+	<!--Given the user utterance, what is the user's action (i.e. intent)? [PROB RULES]-->
+	<model trigger="u_u">
+		<!-- Handle quit requests -->
+		<rule>
+			<case>
+				<condition>
+					<if var="u_u" relation="contains" value="(quit|exit|Quit|Exit|QUIT|EXIT)"/>
+				</condition>
+				<effect>
+					<set var="a_u" value="Input(Exit)" />
+				</effect>
+			</case>
+		<!-- Handle ask-a-question requests -->
+			<case>
+				<condition operator="or">
+					<if var="u_u" relation="contains" value="question" />
+					<if var="u_u" relation="contains" value="ask*question" />
+				</condition>
+				<effect>
+					<set var="a_u" value="Input(Question)" />
+				</effect>
+			</case>
+		<!-- Handle fun-fact requests -->
+			<case>
+				<condition operator="or">
+					<if var="u_u" relation="contains" value="fun*fact" />
+					<if var="u_u" relation="contains" value="fact" />
+					</condition>
+				<effect>
+					<set var="a_u" value="Input(Fact)" />
+				</effect>
+			</case>			
+		</rule>
+		<!-- Handles raw text input to the W|A API, once it has bee established what the user wants to do -->
+		<rule>
+			<case>
+				<condition>
+					<if var="ask_question" relation="=" value="true" />
+				</condition>
+				<effect>
+					<set var="u_m" value="You're asking about {u_u}. Pretend I did the Wolfram Alpha Call. Clever me!" />
+					<set var="ask_question" value="false" />
+					<set var="a_m" value="System(LoopCheck)" />
+				</effect>
+			</case>
+		</rule>
+		<rule>
+			<case>
+				<condition>
+					<if var="fun_fact" relation="=" value="true" />
+				</condition>
+				<effect>
+					<set var="u_m" value="You want a fact about {u_u}. Pretend I did the Wolfram Alpha Call. Clever me!" />
+					<set var="fun_fact" value="false" />
+					<set var="a_m" value="System(LoopCheck)" />
+				</effect>
+			</case>
+		</rule>
+	</model>
+	<!-- Matches speaker actions to machine actions (largely superfluous here; kept in case)-->
+	<model trigger="a_u">
+		<rule>
+			<case>
+				<condition>
+					<if var="a_u" value="Input(Exit)" />
+				</condition>
+				<effect util="1">
+					<set var="a_m" value ="System(Exit)" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_u" value="Input(Question)" />
+				</condition>
+				<effect util="1">
+					<set var="a_m" value ="System(Question)" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_u" value="Input(Fact)" />
+				</condition>
+				<effect util="1">
+					<set var="a_m" value ="System(Fact)" />
+				</effect>
+			</case>
+	    </rule>
+		<rule>
+			<case>
+				<effect util="-0.5">
+					<set var="a_m" value="System(*)"/>
+				</effect>
+			</case>
+		</rule>
+ 		<rule>
+ 			<case>
+				<effect util="theta_repeat">
+					<set var="a_m" value="AskRepeat"/>
+				</effect>
+      		</case>
+		</rule>
+	</model>
+	<!-- Translates machine actions into machine utterances and triggers either the ask-question or the fun-fact function -->
+	<model trigger="a_m">
+		<rule>
+			<case>
+				<condition>
+					<if var="a_m" value="System(Exit)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Goodbye" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_m" value="System(Question)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="All right, ask me anything!" />
+					<set var="ask_question" value="true" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_m" value="System(Fact)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Who or what would you like a fun fact about?" />
+					<set var="fun_fact" value="true" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_m" value="System(LoopCheck)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Would you like to ask another question or quit?" />
+				</effect>
+			</case>
+
+			<!--Asks for clarification-->
+			<case>
+				<condition>
+					<if var="a_m" value="AskRepeat"/>
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Sorry, could you repeat?"/>
+				</effect>
+				<effect util="theta_repeatpredict[0]">
+					<set var="a_u^p" value="{a_u}" />
+				</effect>
+			</case>
+ 		</rule>
+	</model>
+<!--
+	<model trigger="ask_question, u_u">
+		<rule>
+ 			<case>
+				<effect util="1">
+					<set var="ques_in" value="{u_u}"/>
+					<set var="u_m" value="You asked about {ques_in}."/>
+					<set var="a_m" value="System(LoopCheck)" />
+				</effect>
+      		</case>
+		</rule>
+	</model>
+	<model trigger = "fun_fact, u_u">
+		<rule>
+ 			<case>
+				<effect util="1">
+					<set var="fact_in" value="{u_u}"/>
+					<set var="u_m" value="You asked about {fact_in}."/>
+					<set var="a_m" value="System(LoopCheck)" />
+				</effect>
+      		</case>
+		</rule>
+	</model>
+-->	
+	<!-- Enable Nuance ASR/TTS -->
+
+</domain>

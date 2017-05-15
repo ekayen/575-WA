@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain>
+	<initialstate>
+		<variable id="u_m">
+			<value>Welcome to Wolfram Alpha! Ask me anything! </value>
+		</variable>
+		<variable id="current_state">
+			<value>MainMenu</value>
+		</variable>
+	</initialstate>
+		<parameters>
+		<variable id="theta_repeat">
+			<distrib type="gaussian">
+				<mean>0</mean>
+				<variance>5</variance>
+			</distrib>
+			
+		</variable>
+		<variable id="theta_repeatpredict">
+			<distrib type="dirichlet">
+				<alpha>3</alpha>
+				<alpha>1</alpha>
+			</distrib>
+		</variable>
+	</parameters>
+	<!--Given the user utterance, what is the user's action (i.e. intent)? [PROB RULES]-->
+	<model trigger="u_u">
+		<rule>
+			<case>
+				<condition>
+					<if var="u_u" relation="contains" value="(quit|exit|Quit|Exit|QUIT|EXIT))"/>
+				</condition>
+				<effect>
+					<set var="a_u" value="Input(Exit)" />
+				</effect>
+			</case>
+			<case>
+				<effect>
+					<set var="a_u" value="Input(Asked)" />
+					<set var="input_string" value="{u_u}" />
+				</effect>
+			</case>
+		</rule>
+	</model>
+	<!--Given the user's action, what should be the machine's action? [UTIL RULES]-->
+	<model trigger="a_u">
+		<rule>
+			<case>
+				<condition>
+					<if var="a_u" value="Input(Exit)" />
+				</condition>
+				<effect util="1">
+					<set var="a_m" value ="System(Exit)" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_u" value="Input(Asked)" />
+				</condition>
+				<effect util="1">
+					<set var="a_m" value ="System(Asked)" />
+				</effect>
+			</case>
+	    </rule>
+		<rule>
+			<case>
+				<effect util="-0.5">
+					<set var="a_m" value="System(*)"/>
+				</effect>
+			</case>
+		</rule>
+ 		<rule>
+ 			<case>
+				<effect util="theta_repeat">
+					<set var="a_m" value="AskRepeat"/>
+				</effect>
+      		</case>
+		</rule>
+	</model>
+	<!--Given the machine's action, what should be the machine's utterance? [UTIL RULES]-->
+	<model trigger="a_m">
+		<rule>
+			<case>
+				<condition>
+					<if var="a_m" value="System(Exit)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Goodbye" />
+				</effect>
+			</case>
+			<case>
+				<condition>
+					<if var="a_m" value="System(Asked)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="You asked {input_string}. Here's where we pretend I asked Wolfram Alpha! Clever me!" />
+					<set var="a_m" value="System(LoopCheck)" />
+				</effect>
+			</case>
+
+			<case>
+				<condition>
+					<if var="a_m" value="System(LoopCheck)" />
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Would you like to ask another question or quit?" />
+				</effect>
+			</case>
+
+			<!--Asks for clarification-->
+			<case>
+				<condition>
+					<if var="a_m" value="AskRepeat"/>
+				</condition>
+				<effect util="1">
+					<set var="u_m" value="Sorry, could you repeat?"/>
+				</effect>
+				<effect util="theta_repeatpredict[0]">
+					<set var="a_u^p" value="{a_u}" />
+				</effect>
+			</case>
+ 		</rule>
+	</model>
+	<!-- Enable Nuance ASR/TTS -->
+
+</domain>
